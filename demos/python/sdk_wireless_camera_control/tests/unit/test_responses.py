@@ -11,17 +11,17 @@ import pytest
 import requests_mock
 
 from open_gopro import GoPro
-from open_gopro.communication_client import GoProDataHandler
+from open_gopro.communication_client import GoProResponder
 from open_gopro.api import Api
-from open_gopro.constants import ActionId, CmdId, GoProUUIDs, QueryCmdId, SettingId, StatusId
+from open_gopro.constants import QueryCmdId, SettingId, StatusId, UUID
 from open_gopro.responses import GoProResp, ParserMapType
-from open_gopro.api import Api
+from open_gopro.api.v1_0.api import ApiV1_0
 
 
 @pytest.fixture(scope="function")
 def parser_map() -> ParserMapType:
-    responder = GoProDataHandler()
-    Api(responder, responder)
+    responder = GoProResponder()
+    ApiV1_0(responder, responder)
     yield responder._parser_map
 
 
@@ -29,15 +29,15 @@ test_push_receive_no_parameter = bytearray([0x08, 0xA2, 0x00, 0x02, 0x00, 0x03, 
 
 
 def test_push_response_no_parameter_values(parser_map: ParserMapType):
-    r = GoProResp(parser_map, [GoProUUIDs.CQ_QUERY_RESP])
+    r = GoProResp(parser_map, [UUID.CQ_QUERY_RESP])
     r._accumulate(test_push_receive_no_parameter)
     assert r.is_received
     r._parse()
     assert r.is_parsed
     assert r.is_ok
-    assert r.identifier is QueryCmdId.SETTING_CAPABILITY_PUSH
+    assert r.id is QueryCmdId.SETTING_CAPABILITY_PUSH
     assert r.cmd is QueryCmdId.SETTING_CAPABILITY_PUSH
-    assert r.uuid == GoProUUIDs.CQ_QUERY_RESP
+    assert r.uuid is UUID.CQ_QUERY_RESP
     assert r.endpoint is None
     assert r[SettingId.RESOLUTION] == []
     assert isinstance(r.flatten, dict)
@@ -47,12 +47,12 @@ test_read_receive = bytearray([0x64, 0x62, 0x32, 0x2D, 0x73, 0x58, 0x56, 0x2D, 0
 
 
 def test_read_command(parser_map: ParserMapType):
-    r = GoProResp._from_read_response(parser_map, GoProUUIDs.WAP_PASSWORD, test_read_receive)
+    r = GoProResp._from_read_response(parser_map, UUID.WAP_PASSWORD, test_read_receive)
     assert r.is_parsed
     assert r.is_received
     assert r.is_received
     assert r.is_ok
-    assert r.identifier is GoProUUIDs.WAP_PASSWORD
+    assert r.id is UUID.WAP_PASSWORD
     assert r.cmd is None
     assert r.endpoint is None
     assert r["password"] == "db2-sXV-fb8"
@@ -60,14 +60,12 @@ def test_read_command(parser_map: ParserMapType):
     assert isinstance(r.flatten, str)
 
 
-test_write_send = bytearray([0x05])  ## Sleep
+test_write_send = bytearray([0x01, 0x05])
 test_write_recieve = bytearray([0x02, 0x05, 0x00])
 
 
 def test_write_command(parser_map: ParserMapType):
-    identifier = GoProResp.get_id_from_request(test_write_send, GoProUUIDs.CQ_COMMAND)
-    assert identifier is CmdId.SLEEP
-    r = GoProResp(parser_map, [GoProUUIDs.CQ_COMMAND_RESP, identifier])
+    r = GoProResp._from_write_command(parser_map, UUID.CQ_COMMAND, test_write_send)
     r._accumulate(test_write_recieve)
     assert r.is_received
     r._parse()
@@ -75,7 +73,7 @@ def test_write_command(parser_map: ParserMapType):
     assert r.is_ok
 
 
-test_complex_write_send = bytes([0x13])
+test_complex_write_send = bytes([0x01, 0x13])
 test_complex_write_receive = bytes(
     [
         0x21,
@@ -474,9 +472,7 @@ test_complex_write_receive = bytes(
 
 
 def test_complex_write_command(parser_map: ParserMapType):
-    identifier = GoProResp.get_id_from_request(test_complex_write_send, GoProUUIDs.CQ_QUERY)
-    assert identifier is QueryCmdId.GET_STATUS_VAL
-    r = GoProResp(parser_map, [GoProUUIDs.CQ_QUERY_RESP, identifier])
+    r = GoProResp._from_write_command(parser_map, UUID.CQ_QUERY, test_complex_write_send)
     idx = 0
     while not r.is_received:
         end = len(test_complex_write_receive) if idx + 20 > len(test_complex_write_receive) else idx + 20
@@ -486,11 +482,10 @@ def test_complex_write_command(parser_map: ParserMapType):
     r._parse()
     assert r.is_parsed
     assert r.is_received
-    assert "DEPRECATED" in list(r.values())
     assert r.is_ok
-    assert r.identifier is QueryCmdId.GET_STATUS_VAL
+    assert r.id is QueryCmdId.GET_STATUS_VAL
     assert r.cmd is QueryCmdId.GET_STATUS_VAL
-    assert r.uuid == GoProUUIDs.CQ_QUERY_RESP
+    assert r.uuid is UUID.CQ_QUERY_RESP
     assert StatusId.ENCODING in r
     # Test iterator
     for x in r:
@@ -699,20 +694,17 @@ def test_http_response_with_extra_parsing(parser_map: ParserMapType):
         assert r.is_received
         assert r.is_ok
         assert r.cmd is None
-        assert r.uuid == None
+        assert r.uuid is None
         assert len(str(r)) > 0
         assert r.endpoint
 
 
-send_proto = bytearray(b"\xf1k\x08\x01")
+send_proto = bytearray(b"\x04\xf1k\x08\x01")
 receive_proto = bytearray(b"\x04\xf1\xeb\x08\x01")
 
 
 def test_proto(parser_map: ParserMapType):
-    identifier = GoProResp.get_id_from_request(send_proto, GoProUUIDs.CQ_COMMAND)
-    assert identifier is ActionId.SET_TURBO_MODE
-    r = GoProResp(parser_map, [GoProUUIDs.CQ_COMMAND_RESP, identifier])
-
+    r = GoProResp._from_write_command(parser_map, UUID.CQ_COMMAND, send_proto)
     r._accumulate(receive_proto)
     assert r.is_received
     r._parse()

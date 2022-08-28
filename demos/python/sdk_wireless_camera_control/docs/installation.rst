@@ -59,5 +59,9 @@ Then install the package
 For Developers
 **************
 
-The above installation will not install Open GoPro in editable mode. If you want to modify the package so that
-you can change it, for i.e. development, see :ref:`Contribution<Steps>`.
+The above installation will not install Open GoPro in editable mode. If you want to modify the package, you
+should install it as such:
+
+.. code-block:: console
+
+    $ pip install -r requirements-dev.txt -r requirements.txt

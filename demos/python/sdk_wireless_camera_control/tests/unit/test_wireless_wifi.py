@@ -9,7 +9,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from open_gopro.wifi.adapters.wireless import Wireless, SsidState
+from open_gopro.wifi.adapters.wireless import Wireless, ensure_sudo, SsidState, cmp
 
 # TODO add others
 operating_systems = ["windows"]
@@ -39,10 +39,6 @@ class CommandSender(ABC):
             raise NotImplementedError
 
     @abstractmethod
-    def which(self, request: str) -> str:
-        raise NotImplementedError
-
-    @abstractmethod
     def __call__(self, command: str) -> str:
         raise NotImplementedError
 
@@ -51,10 +47,6 @@ class WindowsCommandSender(CommandSender):
     def __init__(self) -> None:
         super().__init__()
         self.os: OS_TYPE = "windows"
-
-    def which(self, request: str) -> str:
-        if request == "netsh":
-            return "valid"
 
     def __call__(self, command: str) -> str:
         response = None
@@ -159,11 +151,11 @@ There is no wireless interface on the system.
             response = r'Profile "GP24500456" is deleted from interface "Wi-Fi".'
         elif command == r"add_profile":
             response = r"Profile GP24500456 is added on interface Wi-Fi."
-        elif command == r'netsh wlan connect ssid="GP24500456" name="GP24500456" interface="Wi-Fi"':
+        elif command == r'netsh wlan connect ssid="GP24500456" name="GP24500456" interface=Wi-Fi':
             response = r"Connection request was completed successfully."
-        elif command == r'netsh interface set interface "Wi-Fi" "enable"':
+        elif command == r"netsh interface set interface Wi-Fi enable":
             response = r"This network connection does not exist."
-        elif command == r'netsh interface set interface "Wi-Fi" "disable"':
+        elif command == r"netsh interface set interface Wi-Fi disable":
             response = ""
         elif r"netsh wlan add profile filename" in command:
             response = r"Profile GP24500456 is added on interface Wi-Fi."
@@ -200,10 +192,8 @@ class MockOs:
 @pytest.fixture(scope="function", params=operating_systems)
 def command_sender(request, monkeypatch):
     command_sender = CommandSender.from_os(request.param)
-    mock_os = MockOs(request.param)
     monkeypatch.setattr("open_gopro.wifi.adapters.wireless.cmd", command_sender)
-    monkeypatch.setattr("open_gopro.wifi.adapters.wireless.os", mock_os)
-    monkeypatch.setattr("open_gopro.wifi.adapters.wireless.which", command_sender.which)
+    monkeypatch.setattr("open_gopro.wifi.adapters.wireless.os", MockOs(request.param))
     yield command_sender
 
 
@@ -211,6 +201,12 @@ def command_sender(request, monkeypatch):
 def wireless(command_sender):
     test_client = Wireless()
     yield test_client
+
+
+def test_ensure_sudo(command_sender):
+    if command_sender.os == "windows":
+        with pytest.raises(Exception):
+            ensure_sudo()
 
 
 def test_power(wireless: Wireless):
@@ -235,3 +231,9 @@ def test_is_on(wireless: Wireless, command_sender: CommandSender):
     assert wireless.is_on
     command_sender.interface_state = InterfaceState.DISABLED
     assert not wireless.is_on
+
+
+def test_cmp():
+    assert cmp(1, 2) == -1
+    assert cmp(1, 1) == 0
+    assert cmp(2, 1) == 1

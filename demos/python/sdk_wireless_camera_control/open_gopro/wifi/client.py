@@ -13,16 +13,12 @@ logger = logging.getLogger(__name__)
 
 
 class WifiClient:
-    """A Wifi client that is composed of, among other things, a Wifi interface"""
+    """A Wifi client that is composed of, among other things, a Wifi interface
+
+    The interface is generic and can be set with the 'controller' argument
+    """
 
     def __init__(self, controller: WifiController) -> None:
-        """Constructor
-
-        The interface is generic and can be set with the 'controller' argument
-
-        Args:
-            controller (WifiController): controller implementation to use for this client
-        """
         self._controller = controller
         self.ssid: Optional[str]
         self.password: Optional[str]
@@ -35,19 +31,19 @@ class WifiClient:
         Args:
             ssid (str): [description]
             password (str): [description]
-            timeout (int): [description]. Defaults to 15.
-            retries (int): [description]. Defaults to 5.
+            timeout (int, optional): [description]. Defaults to 15.
+            retries (int, optional): [description]. Defaults to 5.
 
         Raises:
             ConnectFailed: [description]
         """
         logger.info(f"Establishing Wifi connection to {ssid}")
-        for _ in range(retries):
+        for _ in range(50):
             if self._controller.connect(ssid, password, timeout):
                 self.ssid = ssid
                 self.password = password
                 return
-        raise ConnectFailed("Wifi failed to connect", timeout, retries)
+        raise ConnectFailed("Wifi failed to connect", timeout, 50)
 
     def close(self) -> None:
         """Close the client resource.

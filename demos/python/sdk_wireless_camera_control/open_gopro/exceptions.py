@@ -3,15 +3,16 @@
 
 """Exceptions that pertain to Gopro-level functionality."""
 
-from typing import Callable
-
 
 class GoProError(Exception):
     """Base class for other GoPro-level exceptions."""
 
+    def __init__(self, message: str) -> None:
+        super().__init__(f"GoPro Error: {message}")
+
 
 class ResponseParseError(GoProError):
-    """Error when parsing received data."""
+    """The scan failed without finding a device."""
 
     def __init__(self, identifier: str, data: bytearray) -> None:
         super().__init__(f"Failed to parse {data.hex(':')} from {identifier}")
@@ -34,8 +35,8 @@ class InvalidConfiguration(GoProError):
 class GoProNotInitialized(GoProError):
     """A command was attempted without waiting for the GoPro instance to initialize."""
 
-    def __init__(self, message: str) -> None:
-        super().__init__(f"GoPro is not correctly initialized: {message}")
+    def __init__(self) -> None:
+        super().__init__("GoPro has not been initialized yet")
 
 
 class FailedToFindDevice(GoProError):
@@ -72,7 +73,3 @@ class ResponseTimeout(GoProError):
 
     def __init__(self, timeout: float) -> None:
         super().__init__(f"Response timeout occurred of {timeout} seconds")
-
-
-ExceptionHandler = Callable[[Exception], None]
-"""Exception handler callback type"""

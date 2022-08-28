@@ -40,20 +40,20 @@ This package implements the API as defined in the `Open GoPro Specification <htt
 For more information on the API, see the relevant documentation:
 
 - `BLE API <https://gopro.github.io/OpenGoPro/ble>`_
-- `Wi-Fi API <https://gopro.github.io/OpenGoPro/http>`_
+- `Wi-Fi API <https://gopro.github.io/OpenGoPro/wifi>`_
 
 .. warning::
-    This package requires Python >= version 3.8 and <= 3.10
+    This package has only been tested on Python 3.8.x
 
 Features
 --------
 
 - Top-level GoPro class interface to use both BLE / WiFi
-- Cross-platform (tested on Windows 10, and Ubuntu 20.04, and >= MacOS Big Sur)
+- Cross-platform (tested on MacOS Big Sur, Windows 10, and Ubuntu 20.04)
 
     - BLE controller implemented using `bleak <https://pypi.org/project/bleak/>`_
     - Wi-Fi controller provided in the Open GoPro package (loosely based on the `Wireless Library <https://pypi.org/project/wireless/>`_ )
-- Supports all wireless commands, settings, and statuses from the `Open GoPro API <https://gopro.github.io/OpenGoPro/>`_
+- Supports all commands, settings, and statuses from the `Open GoPro API <https://gopro.github.io/OpenGoPro/>`_
 - Supports all versions of the Open GoPro API
 - Automatically handles connection maintenance:
 
@@ -64,7 +64,7 @@ Features
 
     - Take a photo
     - Take a video
-    - View the live / preview stream
+    - View the live stream
     - Log the battery
 
 Getting Started
@@ -77,12 +77,6 @@ this document in order):
 #. Try some of the :ref:`demos<QuickStart Guide>`
 #. Implement your own example, perhaps starting with a demo, with :ref:`usage<Usage>` information
 #. If you need more detailed implementation reference, see the Interface :ref:`documentation<Interfaces>`
-
-Development
------------
-
-#. Set up the :ref:`development environment<Get Started!>`
-#. Open a :ref:`Pull Request<Pull Request Guidelines>`
 
 .. toctree::
     :maxdepth: 4

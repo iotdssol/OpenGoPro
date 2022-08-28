@@ -15,7 +15,6 @@ from bleak.backends.device import BLEDevice as BleakDevice
 from tests import cameras
 from open_gopro.ble import FailedToFindDevice
 from open_gopro.ble.adapters.bleak_wrapper import BleakWrapperController
-from open_gopro.constants import GoProUUIDs
 
 
 def disconnected_cb(_) -> None:
@@ -32,9 +31,7 @@ def device(bleak_wrapper: BleakWrapperController, request):
     retries = 10
     for retry in range(retries):
         try:
-            device = bleak_wrapper.scan(
-                re.compile(cameras[request.param]), timeout=2, service_uuids=[GoProUUIDs.S_CONTROL_QUERY]
-            )
+            device = bleak_wrapper.scan(re.compile(cameras[request.param]), timeout=2)
             if device is not None and "gopro" in device.name.lower():
                 yield device
                 return
@@ -49,25 +46,30 @@ def client(bleak_wrapper: BleakWrapperController, device: BleakDevice):
     yield bleak_wrapper.connect(disconnected_cb, device)
 
 
+@pytest.mark.asyncio
 def test_is_connected(client: BleakClient):
     assert client.is_connected
 
 
+@pytest.mark.asyncio
 def test_pair(bleak_wrapper: BleakWrapperController, client: BleakClient):
     bleak_wrapper.pair(client)
     assert True
 
 
+@pytest.mark.asyncio
 def test_discover_characteristics(bleak_wrapper: BleakWrapperController, client: BleakClient):
     attribute_table = bleak_wrapper.discover_chars(client)
     assert len(attribute_table.services) > 0
 
 
+@pytest.mark.asyncio
 def test_enable_notifications(bleak_wrapper: BleakWrapperController, client: BleakClient):
     bleak_wrapper.enable_notifications(client, notification_cb)
     assert True
 
 
+@pytest.mark.asyncio
 def test_disconnect(bleak_wrapper: BleakWrapperController, client: BleakClient):
     bleak_wrapper.disconnect(client)
     assert not client.is_connected

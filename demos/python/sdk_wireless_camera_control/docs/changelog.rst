@@ -9,45 +9,6 @@ All notable changes to this project will be documented in this file.
 The format is based on `Keep a Changelog <https://keepachangelog.com/en/1.0.0/>`_,
 and this project adheres to `Semantic Versioning <https://semver.org/spec/v2.0.0.html>`_.
 
-Unreleased
-----------
-* Add sudo password argument to Wifi Controller and expose through CLI demos via stdin
-* Add more protobuf commands and missing protobuf ID parsing functionality
-* Add livestream demo GUI
-* Change preview stream demo to be a GUI
-* Add support for fragmenting long data packets when sending BLE data
-
-0.9.2 (June-16-2022)
------------------------
-* Remove use of importlib.metadata as it was complicating pyinstaller use of this package
-
-0.9.1 (May-27-2022)
------------------------
-* Improve non-main thread and asyncio exception handling
-* Add pydocstyle verification
-
-0.9.0 (February-7-2022)
------------------------
-* Move to Poetry-based development environment
-* Fix docstring inconsistencies
-
-0.8.0 (February-3-2022)
------------------------
-* Improve BLE connection Robustness
-* Deprecate support for Open GoPro Versions other than 2.0
-* Add set / date time commands
-* Implement remaining protobuf commands and fix protobuf parsing
-* Add hilight commands
-* Implement common UUID type
-* Add video performance mode
-* Remove deprecated status and setting ID's
-
-0.7.2 (January-3-2022)
-----------------------
-* Allow for WiFi adapter to specify interface
-* Clean up Wifi adapter
-* Bump test package versions
-
 0.7.1 (December-16-2021)
 -------------------------
 * Add global behaviors commands and camera control status

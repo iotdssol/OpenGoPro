@@ -3,189 +3,37 @@
 
 """Constant numbers shared across the GoPro module. These do not change across Open GoPro Versions"""
 
-from __future__ import annotations
 from enum import Enum, EnumMeta
-from dataclasses import dataclass
-from typing import (
-    Protocol,
-    Union,
-    Tuple,
-    Iterator,
-    Type,
-    TypeVar,
-    Any,
-    no_type_check,
-    Dict,
-    Final,
-)
+from typing import Union, Tuple, Iterator, Type, TypeVar
 
 import construct
 
-from open_gopro.ble import BleUUID, UUIDs
+from open_gopro.ble import UUID
 
 T = TypeVar("T")
 
-
-##############################################################################################################
-#####################   Custom Enum for this Project  ########################################################
-##############################################################################################################
-
-
-class ProtobufDescriptor(Protocol):
-    """Protocol definition for Protobuf enum descriptor used to generate GoPro enums from protobufs"""
-
-    @property
-    def name(self) -> str:
-        """Human readable name of protobuf enum
-
-        # noqa: DAR202
-
-        Returns:
-            str: enum name
-        """
-
-    @property
-    def values_by_name(self) -> Dict:
-        """Get the enum values by name
-
-        # noqa: DAR202
-
-        Returns:
-            Dict: Dict of enum values mapped by name
-        """
-
-    @property
-    def values_by_number(self) -> Dict:
-        """Get the enum values by number
-
-        # noqa: DAR202
-
-        Returns:
-            Dict: dict of enum numbers mapped by numberf
-        """
+GOPRO_BASE_UUID = "b5f9{}-aa8d-11e3-9046-0002a5d5c51b"
 
 
 class GoProEnumMeta(EnumMeta):
     """Modify enum metaclass to build GoPro specific enums"""
 
-    _is_proto = False
-    _iter_skip_names = ("NOT_APPLICABLE", "DESCRIPTOR")
-
-    @no_type_check
-    def __new__(cls, name, bases, classdict, **kwargs) -> GoProEnumMeta:  # noqa
-        is_proto = "__is_proto__" in classdict
-        classdict["_ignore_"] = "__is_proto__"
-        classdict["__doc__"] = ""  # Don't use useless "An enumeration" docstring
-        e = super().__new__(cls, name, bases, classdict, **kwargs)
-        setattr(e, "_is_proto", is_proto)
-        return e
-
-    @no_type_check
-    def __contains__(cls: type[Any], obj: object) -> bool:
-        if isinstance(obj, Enum):
-            return super().__contains__(obj)
-        if isinstance(obj, int):
-            return obj in [x.value for x in cls._member_map_.values()]
-        if isinstance(obj, str):
-            return obj.lower() in [x.name.lower() for x in cls._member_map_.values()]
-        raise TypeError(
-            f"unsupported operand type(s) for 'in': {type(obj).__qualname__} and {cls.__class__.__qualname__}"
-        )
+    ITER_SKIP_NAMES = ["NOT_APPLICABLE"]
 
     def __iter__(cls: Type[T]) -> Iterator[T]:
-        """Do not return enum values whose name is in the _iter_skip_names list
+        """Do not return enum values whose name is in the ITER_SKIP_NAMES list
 
         Returns:
             Iterator[T]: enum iterator
         """
-        return iter([x[1] for x in cls._member_map_.items() if x[0] not in GoProEnumMeta._iter_skip_names])  # type: ignore
+        return iter([x[1] for x in cls._member_map_.items() if x[0] not in GoProEnumMeta.ITER_SKIP_NAMES])  # type: ignore
 
 
 class GoProEnum(Enum, metaclass=GoProEnumMeta):
     """GoPro specific enum to be used for all settings, statuses, and parameters
 
-    The names NOT_APPLICABLE and DESCRIPTOR are special as they will not be returned as part of the enum iterator
+    The name NOT_APPLICABLE is special as it will not be returned as part of the enum iterator
     """
-
-    def __eq__(self, other: object) -> bool:
-        if type(self)._is_proto:
-            if isinstance(other, int):
-                return self.value == other
-            if isinstance(other, str):
-                return self.name == other
-            if isinstance(other, Enum):
-                return self.value == other.value
-            raise TypeError(f"Unexpected case: proto enum can only be str or int, not {type(other)}")
-        return super().__eq__(other)
-
-    def __hash__(self) -> Any:  # pylint: disable=useless-super-delegation
-        return super().__hash__()
-
-
-def enum_factory(proto_enum: ProtobufDescriptor) -> Type[GoProEnum]:
-    """Dynamically build a GoProEnum from a protobuf enum
-
-    Args:
-        proto_enum (ProtobufDescriptor): input protobuf enum descriptor
-
-    Returns:
-        GoProEnum: generated GoProEnum
-    """
-    return GoProEnum(  # type: ignore # pylint: disable=too-many-function-args
-        proto_enum.name,
-        {
-            **dict(
-                zip(
-                    proto_enum.values_by_name.keys(),
-                    proto_enum.values_by_number.keys(),
-                )
-            ),
-            "__is_proto__": True,
-        },
-    )
-
-
-##############################################################################################################
-#####################  End Enum Definition ###################################################################
-##############################################################################################################
-
-GOPRO_BASE_UUID: Final = "b5f9{}-aa8d-11e3-9046-0002a5d5c51b"
-
-
-@dataclass(frozen=True)
-class GoProUUIDs(UUIDs):
-    """GoPro Proprietary BleUUID's."""
-
-    # GoPro Wifi Access Point Service
-    S_WIFI_ACCESS_POINT = BleUUID("Wifi Access Point Service", hex=GOPRO_BASE_UUID.format("0001"))
-    WAP_SSID = BleUUID("Wifi AP SSID", hex=GOPRO_BASE_UUID.format("0002"))
-    WAP_PASSWORD = BleUUID("Wifi AP Password", hex=GOPRO_BASE_UUID.format("0003"))
-    WAP_POWER = BleUUID("Wifi Power", hex=GOPRO_BASE_UUID.format("0004"))
-    WAP_STATE = BleUUID("Wifi State", hex=GOPRO_BASE_UUID.format("0005"))
-    WAP_CSI_PASSWORD = BleUUID("CSI Password", hex=GOPRO_BASE_UUID.format("0006"))
-
-    # GoPro Control & Query Service
-    S_CONTROL_QUERY = BleUUID("Control and Query Service", hex="0000fea6-0000-1000-8000-00805f9b34fb")
-    CQ_COMMAND = BleUUID("Command", hex=GOPRO_BASE_UUID.format("0072"))
-    CQ_COMMAND_RESP = BleUUID("Command Response", hex=GOPRO_BASE_UUID.format("0073"))
-    CQ_SETTINGS = BleUUID("Settings", hex=GOPRO_BASE_UUID.format("0074"))
-    CQ_SETTINGS_RESP = BleUUID("Settings Response", hex=GOPRO_BASE_UUID.format("0075"))
-    CQ_QUERY = BleUUID("Query", hex=GOPRO_BASE_UUID.format("0076"))
-    CQ_QUERY_RESP = BleUUID("Query Response", hex=GOPRO_BASE_UUID.format("0077"))
-    CQ_SENSOR = BleUUID("Sensor", hex=GOPRO_BASE_UUID.format("0078"))
-    CQ_SENSOR_RESP = BleUUID("Sensor Response", hex=GOPRO_BASE_UUID.format("0079"))
-
-    # GoPro Camera Management Service
-    S_CAMERA_MANAGEMENT = BleUUID("Camera Management Service", hex=GOPRO_BASE_UUID.format("0090"))
-    CM_NET_MGMT_COMM = BleUUID("Camera Management", hex=GOPRO_BASE_UUID.format("0091"))
-    CN_NET_MGMT_RESP = BleUUID("Camera Management Response", hex=GOPRO_BASE_UUID.format("0092"))
-
-    # Unknown
-    S_INTERNAL = BleUUID("Unknown Service", hex=GOPRO_BASE_UUID.format("0080"))
-    INTERNAL_81 = BleUUID("Internal 81", hex=GOPRO_BASE_UUID.format("0081"))
-    INTERNAL_82 = BleUUID("Internal 82", hex=GOPRO_BASE_UUID.format("0082"))
-    INTERNAL_83 = BleUUID("Internal 83", hex=GOPRO_BASE_UUID.format("0083"))
-    INTERNAL_84 = BleUUID("Internal 84", hex=GOPRO_BASE_UUID.format("0084"))
 
 
 class ErrorCode(GoProEnum):
@@ -194,24 +42,18 @@ class ErrorCode(GoProEnum):
     SUCCESS = 0
     ERROR = 1
     INVALID_PARAM = 2
-    UNKNOWN = -1
 
 
 class CmdId(GoProEnum):
-    """Command ID's that are written to GoProUUIDs.CQ_COMMAND."""
+    """Command ID's that are written to UUID.CQ_COMMAND."""
 
     SET_SHUTTER = 0x01
     POWER_DOWN = 0x04
     SLEEP = 0x05
     SET_PAIRING_COMPLETE = 0x03
-    SET_DATE_TIME = 0x0D
-    GET_DATE_TIME = 0x0E
-    SET_DATE_TIME_DST = 0x0F
-    GET_DATE_TIME_DST = 0x10
     GET_CAMERA_SETTINGS = 0x12
     GET_CAMERA_STATUSES = 0x13
     SET_WIFI = 0x17
-    TAG_HILIGHT = 0x18
     GET_SETTINGS_JSON = 0x3B
     GET_HW_INFO = 0x3C
     LOAD_PRESET_GROUP = 0x3E
@@ -222,38 +64,19 @@ class CmdId(GoProEnum):
     REGISTER_ALL_STATUSES = 0x53
     UNREGISTER_ALL_SETTINGS = 0x72
     UNREGISTER_ALL_STATUSES = 0x73
+    SET_TURBO_MODE = 0xF1
+    GET_PRESET_STATUS = 0xF5
 
 
 class ActionId(GoProEnum):
     """Action ID's that identify a protobuf command."""
 
-    START_SCAN = 0x02
-    REQUEST_WIFI_CONNECT = 0x05
-    NOTIF_PROVIS_STATE = 0x0C
-    SET_CAMERA_CONTROL = 0x69
     SET_TURBO_MODE = 0x6B
-    GET_PRESET_STATUS = 0x72
-    PRESET_MODIFIED_NOTIFICATION = 0x73
-    SET_LIVESTREAM_MODE = 0x79
-    # Responses
-    REQUEST_WIFI_CONNECT_RSP = 0x85
-    SET_CAMERA_CONTROL_RSP = 0xE9
-    SET_TURBO_MODE_RSP = 0xEB
-    GET_PRESET_STATUS_RSP = 0xF2
-    SET_LIVESTREAM_MODE_RSP = 0xF9
-
-
-class FeatureId(GoProEnum):
-    """ID's that group protobuf commands"""
-
-    NETWORK_MANAGEMENT = 0x02
-    COMMAND = 0xF1
-    SETTING = 0xF3
-    QUERY = 0xF5
+    GET_PRESET_STATUS = 0x02
 
 
 class SettingId(GoProEnum):
-    """Setting ID's that identify settings and are written to GoProUUIDs.CQ_SETTINGS."""
+    """Setting ID's that identify settings and are written to UUID.CQ_SETTINGS."""
 
     RESOLUTION = 2
     FPS = 3
@@ -313,14 +136,14 @@ class SettingId(GoProEnum):
     INTERNAL_124 = 124
     INTERNAL_125 = 125
     INTERNAL_126 = 126
-    MEDIA_FORMAT = 128
+    INTERNAL_128 = 128
     INTERNAL_129 = 129
     INTERNAL_130 = 130
     INTERNAL_131 = 131
     INTERNAL_132 = 132
     INTERNAL_133 = 133
-    ANTI_FLICKER = 134
-    HYPERSMOOTH = 135
+    INTERNAL_134 = 134
+    INTERNAL_135 = 135
     INTERNAL_139 = 139
     INTERNAL_142 = 142
     INTERNAL_144 = 144
@@ -347,12 +170,11 @@ class SettingId(GoProEnum):
     INTERNAL_168 = 168
     INTERNAL_169 = 169
     VIDEO_PERFORMANCE_MODE = 173
-    PROTOBUF_SETTING = 0xF3
     INVALID_FOR_TESTING = 0xFF
 
 
 class QueryCmdId(GoProEnum):
-    """Command ID that is written to GoProUUIDs.CQ_QUERY."""
+    """Command ID that is written to UUID.CQ_QUERY."""
 
     GET_SETTING_VAL = 0x12
     GET_STATUS_VAL = 0x13
@@ -368,12 +190,11 @@ class QueryCmdId(GoProEnum):
     SETTING_VAL_PUSH = 0x92
     STATUS_VAL_PUSH = 0x93
     SETTING_CAPABILITY_PUSH = 0xA2
-    PROTOBUF_QUERY = 0xF5
     INVALID_FOR_TESTING = 0xFF
 
 
 class StatusId(GoProEnum):
-    """Status ID to identify statuses sent to GoProUUIDs.CQ_QUERY or received from GoProUUIDs.CQ_QUERY_RESP."""
+    """Status ID to identify statuses sent to UUID.CQ_QUERY or received from UUID.CQ_QUERY_RESP."""
 
     BATT_PRESENT = 1
     BATT_LEVEL = 2
@@ -407,7 +228,7 @@ class StatusId(GoProEnum):
     NUM_GROUP_VIDEO = 37
     NUM_TOTAL_PHOTO = 38
     NUM_TOTAL_VIDEO = 39
-    DEPRECATED_40 = 40
+    DATE_TIME = 40
     OTA_STAT = 41
     DOWNLAD_CANCEL_PEND = 42
     MODE_GROUP = 43
@@ -451,7 +272,7 @@ class StatusId(GoProEnum):
     FLATMODE_ID = 89
     INTERNAL_90 = 90
     LOGS_READY = 91
-    DEPRECATED_92 = 92
+    TIMEWARP_1X_ACTIVE = 92
     VIDEO_PRESETS = 93
     PHOTO_PRESETS = 94
     TIMELAPSE_PRESETS = 95
@@ -475,7 +296,7 @@ class StatusId(GoProEnum):
     TURBO_MODE = 113
     CAMERA_CONTROL = 114
     USB_CONNECTED = 115
-    CONTROL_OVER_USB = 116
+    INTERNAL_116 = 116
 
 
 ProducerType = Tuple[QueryCmdId, Union[SettingId, StatusId]]
@@ -484,5 +305,5 @@ ProducerType = Tuple[QueryCmdId, Union[SettingId, StatusId]]
 CmdType = Union[CmdId, QueryCmdId, ActionId]
 """Types that identify a command."""
 
-ResponseType = Union[CmdType, StatusId, SettingId, BleUUID, str, construct.Enum]
+ResponseType = Union[CmdType, StatusId, SettingId, UUID, str, construct.Enum]
 """Types that are used to identify a response."""

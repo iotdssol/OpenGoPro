@@ -22,17 +22,6 @@ class SsidState(IntEnum):
 class WifiController(ABC):
     """Interface definition for a Wifi driver to be used by GoPro."""
 
-    def __init__(self, interface: Optional[str] = None, password: Optional[str] = None) -> None:
-        """Constructor
-
-        Args:
-            interface (str, Optional): Wifi interface to use. Defaults to None (auto-detect).
-            password (str, Optional): user password to use for sudo. Defaults to None.
-        """
-        self._target_interface = interface
-        self._interface: str
-        self._password = password
-
     @abstractmethod
     def connect(self, ssid: str, password: str, timeout: float = 15) -> bool:
         """Connect to a network.
@@ -40,7 +29,7 @@ class WifiController(ABC):
         Args:
             ssid (str): SSID of network to connect to
             password (str): password of network to connect to
-            timeout (float): Time before considering connection failed (in seconds). Defaults to 15.
+            timeout (float, optional): Time before considering connection failed (in seconds). Defaults to 15.
 
         Returns:
             bool: True if successful, False otherwise
@@ -67,56 +56,32 @@ class WifiController(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def available_interfaces(self) -> List[str]:
-        """Return a list of available Wifi Interface strings
+    def interfaces(self) -> List[str]:
+        """Return a list of wireless adapters.
 
         Returns:
-            List[str]: list of interfaces
+            List[str]: adapters
         """
         raise NotImplementedError
 
-    @property
-    def interface(self) -> str:
-        """Get the Wifi Interface
-
-        Returns:
-            str: interface
-        """
-        return self._interface
-
-    @interface.setter
-    def interface(self, interface: Optional[str]) -> None:
-        """Set the Wifi interface.
-
-        If None is passed, interface will attempt to be auto-detected
+    @abstractmethod
+    def interface(self, interface: Optional[str]) -> Optional[str]:
+        """Get or set the currently used wireless adapter.
 
         Args:
-            interface (Optional[str]): interface (or None to auto-detect)
+            interface (str, optional): Get if the interface parameter is None. Set otherwise. Defaults to None.
 
-        Raises:
-            Exception: Requested interface does not exist
-            Exception: Not able to automatically detect any interfaces
+        Returns:
+            Optional[str]: Name of interface if get. None if set.
         """
-        detected_interfaces = self.available_interfaces()
-        if interface:
-            if interface in detected_interfaces:
-                self._interface = interface
-            else:
-                raise Exception(
-                    f"Requested WiFi interface [{interface}] not found among [{', '.join(detected_interfaces)}]"
-                )
-        else:
-            if detected_interfaces:
-                self._interface = detected_interfaces[0]
-            else:
-                raise Exception("Can't auto-assign interface. None found.")
+        raise NotImplementedError
 
     @abstractmethod
     def power(self, power: bool) -> bool:
         """Enable / disable the wireless driver.
 
         Args:
-            power (bool): Enable if True. Disable if False.
+            power (bool, optional): Enable if True. Disable if False.
         """
         raise NotImplementedError
 
@@ -129,17 +94,3 @@ class WifiController(ABC):
             bool: True if yes. False if no.
         """
         raise NotImplementedError
-
-    @property
-    def sudo(self) -> str:
-        """Return the sudo encapsulated password
-
-        Raises:
-            Exception: No password has been supplied
-
-        Returns:
-            str: echo "**********" | sudo -S
-        """
-        if not self._password:
-            raise Exception("Can't use sudo with empty password.")
-        return f'echo "{self._password}" | sudo -S'

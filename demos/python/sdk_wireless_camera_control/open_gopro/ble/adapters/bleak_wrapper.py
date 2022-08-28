@@ -6,9 +6,9 @@
 import asyncio
 import logging
 import threading
-from typing import Pattern, Dict, Any, Callable, Optional, List, Tuple, Union, Type
+from typing import Pattern, Dict, Any, Callable, Optional
 
-from bleak import BleakScanner, BleakClient, BleakError
+from bleak import BleakScanner, BleakClient
 from bleak.backends.device import BLEDevice as BleakDevice
 
 from open_gopro.exceptions import ConnectFailed
@@ -17,60 +17,27 @@ from open_gopro.ble import (
     Service,
     Characteristic,
     Descriptor,
-    GattDB,
+    AttributeTable,
     BLEController,
     NotiHandlerType,
     FailedToFindDevice,
-    BleUUID,
-    UUIDs,
-    CharProps,
+    UUID,
 )
 
 logger = logging.getLogger(__name__)
 
-bleak_props_to_enum = {
-    "broadcast": CharProps.BROADCAST,
-    "read": CharProps.READ,
-    "write-without-response": CharProps.WRITE_NO_RSP,
-    "write": CharProps.WRITE_YES_RSP,
-    "notify": CharProps.NOTIFY,
-    "indicate": CharProps.INDICATE,
-    "authenticated-signed-writes": CharProps.AUTH_SIGN_WRITE,
-    "extended-properties": CharProps.EXTENDED,
-}
-
-
-def uuid2bleak_string(uuid: BleUUID) -> str:
-    """Convert a BleUUID object to a string representation to appease bleak
-
-    Bleak identifies UUID's by str(). Since BleUUID has overridden that method, we manually convert to the
-    string representation that bleak expects.
-
-    Args:
-        uuid (BleUUID): uuid to convert
-
-    Returns:
-        str: bleakful string representation
-    """
-    return f"{uuid.hex[:8]}-{uuid.hex[8:12]}-{uuid.hex[12:16]}-{uuid.hex[16:20]}-{uuid.hex[20:]}"
-
 
 class BleakWrapperController(BLEController[BleakDevice, BleakClient], Singleton):
-    """Wrapper around bleak to manage a Bluetooth connection."""
+    """Wrapper around bleak to manage a Bluetooth connection.
 
-    def __init__(self, exception_handler: Optional[Callable] = None) -> None:
-        """Constructor
+    Note, this is a singleton.
+    """
 
-        Note, this is a singleton.
-
-        Args:
-            exception_handler (Callable, Optional): Used to catch asyncio exceptions from other tasks. Defaults to None.
-        """
+    def __init__(self) -> None:
         # Thread to run ble controller asyncio loop (to abstract asyncio from client as well as handle async notifications)
         self._module_loop: asyncio.AbstractEventLoop  # Will be set when module thread starts
         self._module_thread = threading.Thread(daemon=True, target=self._run, name="data")
         self._ready = threading.Event()
-        self._exception_handler = exception_handler
         self._module_thread.start()
         self._ready.wait()
 
@@ -79,7 +46,6 @@ class BleakWrapperController(BLEController[BleakDevice, BleakClient], Singleton)
         # Create loop for this new thread
         self._module_loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._module_loop)
-        self._module_loop.set_exception_handler(self._exception_handler)
 
         # Run forever
         self._ready.set()
@@ -92,7 +58,7 @@ class BleakWrapperController(BLEController[BleakDevice, BleakClient], Singleton)
 
         Args:
             action (Callable): function and parameters to run as corouting
-            timeout (float): Time to wait for coroutine to return (in seconds). Defaults to None (wait forever).
+            timeout (float, optional): Time to wait for coroutine to return (in seconds). Defaults to None (wait forever).
 
         Returns:
             Any: Passes return of coroutine through
@@ -100,57 +66,59 @@ class BleakWrapperController(BLEController[BleakDevice, BleakClient], Singleton)
         # Allow timeout exception to propagate
         return asyncio.run_coroutine_threadsafe(action(), self._module_loop).result(timeout)
 
-    def read(self, handle: BleakClient, uuid: BleUUID) -> bytearray:
-        """Read data from a BleUUID.
+    def read(self, handle: BleakClient, uuid: str) -> bytearray:
+        """read data from a UUID.
 
         Args:
             handle (BleakClient): client to read from
-            uuid (BleUUID): uuid to read
+            uuid (str): uuid to read
 
         Returns:
             bytearray: read data
         """
 
-        async def _async_read() -> bytearray:
+        async def _async_read() -> bytearray:  # pylint: disable=missing-return-doc
             logger.debug(f"Reading from {uuid}")
-            response = await handle.read_gatt_char(uuid2bleak_string(uuid))
-            logger.debug(f'Received response on BleUUID [{uuid}]: {response.hex( ":")}')
+            response = await handle.read_gatt_char(uuid)
+            logger.debug(f'Received response on {uuid}: {response.hex( ":")}')
             return response
 
         return self._as_coroutine(_async_read)
 
-    def write(self, handle: BleakClient, uuid: BleUUID, data: bytearray) -> None:
-        """Write data to a BleUUID.
+    def write(self, handle: BleakClient, uuid: str, data: bytearray) -> None:
+        """Write data to a UUID.
+
+        Perform a write, then wait for event to be notified (from a notification handler)
 
         Args:
             handle (BleakClient): Device to write to
-            uuid (BleUUID): characteristic BleUUID to write to
+            uuid (str): characteristic UUID to write to
             data (bytearray): data to write
         """
 
         async def _async_write() -> None:
-            logger.debug(f"Writing to {uuid}: {uuid.hex}")
-            # TODO make with / without response configurable
-            await handle.write_gatt_char(uuid2bleak_string(uuid), data, response=True)
+            logger.debug(f"Writing to {uuid}: {data.hex(':')}")
+            await handle.write_gatt_char(uuid, data)
 
         self._as_coroutine(_async_write)
 
-    def scan(self, token: Pattern, timeout: int = 5, service_uuids: List[BleUUID] = None) -> BleakDevice:
-        """Scan for a regex in advertising data strings, optionally filtering on service BleUUID's
+    def scan(self, token: Pattern, timeout: int = 5) -> BleakDevice:
+        """scan for a regex.
 
         Args:
             token (Pattern): Regex to look for when scanning.
-            timeout (int): Time to scan. Defaults to 5.
-            service_uuids (List[BleUUID], Optional): The list of BleUUID's to filter on. Defaults to None.
+            timeout (int, optional): Time to scan. Defaults to 5.
+
+        Raises:
+            FailedToFindDevice: Did not find any of the token when scanning.
 
         Returns:
             BleakDevice: The first matched device that was discovered
         """
 
-        async def _async_scan() -> BleakDevice:
+        async def _async_scan() -> BleakDevice:  # pylint: disable=missing-return-doc
             logger.info(f"Scanning for {token.pattern} bluetooth devices...")
             devices: Dict[str, BleakDevice] = {}
-            uuids = [] if service_uuids is None else [uuid2bleak_string(uuid) for uuid in service_uuids]
 
             def _scan_callback(device: BleakDevice, _: Any) -> None:
                 """Bleak optional scan callback to receive every scan result.
@@ -163,15 +131,14 @@ class BleakWrapperController(BLEController[BleakDevice, BleakClient], Singleton)
 
                 Args:
                     device (BleakDevice): discovered device
+                    _ : advertisement that we're ignoring
                 """
                 # Add to the dict if not unknown
                 if device.name != "Unknown" and device.name is not None:
                     devices[device.name] = device
 
             # Now get list of connectable advertisements
-            for device in await BleakScanner(service_uuids=uuids).discover(
-                timeout=timeout, detection_callback=_scan_callback, service_uuids=uuids
-            ):
+            for device in await BleakScanner.discover(timeout=timeout, detection_callback=_scan_callback):
                 if device.name != "Unknown" and device.name is not None:
                     devices[device.name] = device
             for d in devices:
@@ -198,7 +165,7 @@ class BleakWrapperController(BLEController[BleakDevice, BleakClient], Singleton)
         Args:
             disconnect_cb (Callable): function called when a disconnect is received
             device (BleakDevice): Device to connect to
-            timeout (int): How long to try connecting before timing out and raising exception. Defaults to 15.
+            timeout (int, optional): How long to try connecting before timing out and raising exception. Defaults to 15.
 
         Raises:
             ConnectFailed: Connection failed to establish
@@ -207,69 +174,24 @@ class BleakWrapperController(BLEController[BleakDevice, BleakClient], Singleton)
             BleakClient: Connected device
         """
 
-        class ConnectSession:
-            """Transient connection manager to manage disconnects while connecting."""
-
-            def __init__(self) -> None:
-                self.disconnected = asyncio.Event()
-                self.disconnected.clear()
-
-            def disconnect_handler(self, _: Any) -> None:
-                """Disconnect handler which is only used while connection is being established.
-
-                Will be set to App's passed-in disconnect handler once connection is established
-                """
-                # From sniffer capture analysis, this is always due to the slave not receiving the master's
-                # connection request. This is (potentially) normal BLE behavior.
-                self.disconnected.set()
-
-        async def _async_connect() -> Tuple[Optional[BleakClient], Optional[Union[Exception, BaseException]]]:
+        async def _async_connect() -> Optional[BleakClient]:  # pylint: disable=missing-return-doc
             logger.info(f"Establishing BLE connection to {device}...")
-
-            connect_session = ConnectSession()
-            bleak_client = BleakClient(
-                device, disconnected_callback=connect_session.disconnect_handler, use_cached=False
-            )
-            exception = None
+            bleak_client = BleakClient(device, disconnected_callback=disconnect_cb)
             try:
-                task_connect = asyncio.create_task(bleak_client.connect(timeout=timeout), name="connect")
-                task_disconnected = asyncio.create_task(connect_session.disconnected.wait(), name="disconnect")
-                finished, unfinished = await asyncio.wait(
-                    [task_connect, task_disconnected], return_when=asyncio.FIRST_COMPLETED
-                )
-                for task in finished:
-                    if exception := task.exception():
-                        if isinstance(task.exception(), asyncio.exceptions.TimeoutError):
-                            exception = Exception("Connection request timed out")
-                        # Completion of these is tasks mutually exclusive so safe to stop now
-                        break
-                for task in unfinished:
-                    task.cancel()
-                if connect_session.disconnected.is_set():
-                    exception = Exception("Connection failed during establishment..")
-            except (BleakError, asyncio.TimeoutError) as e:
-                exception = e
+                await bleak_client.connect(timeout=timeout)
+            except Exception as e:  # pylint: disable= broad-except
+                logger.warning(f"Bleak failed to connect: {repr(e)}")
+                return None
 
-            # TODO is this needed?
-            # if not exception:
-            #     try:
-            #         assert bleak_client.is_connected
-            #         # Now set the application's desired disconnect callback
-            #         bleak_client._disconnected_callback = disconnect_cb
-            #     except AssertionError:
-            #         exception = Exception("Something happened during discovery")
+            return bleak_client
 
-            bleak_client.set_disconnected_callback(disconnect_cb)
-            return bleak_client, exception
-
-        client, exception = self._as_coroutine(_async_connect)
-        if exception:
-            logger.warning(exception)
-            raise ConnectFailed("BLE", 1, 1) from exception
+        client = self._as_coroutine(_async_connect)
+        if client is None:
+            raise ConnectFailed("Bleak Connection Timed out", timeout, 1)
         return client
 
     def pair(self, handle: BleakClient) -> None:
-        """Pair to a device after connection.
+        """pair to a device after connection.
 
         This is required for Windows and not allowed on Mac...
 
@@ -289,13 +211,13 @@ class BleakWrapperController(BLEController[BleakDevice, BleakClient], Singleton)
         self._as_coroutine(_async_def_pair)
 
     def enable_notifications(self, handle: BleakClient, handler: NotiHandlerType) -> None:
-        """Enable all notifications.
+        """enable all notifications.
 
         Search through all characteristics and enable any that have notification property.
 
         Args:
             handle (BleakClient): Device to enable notifications for
-            handler (NotiHandlerType): Notification callback handler
+            handler (Callable): Notification callback handler
         """
 
         async def _async_enable_notifications() -> None:
@@ -309,89 +231,56 @@ class BleakWrapperController(BLEController[BleakDevice, BleakClient], Singleton)
 
         self._as_coroutine(_async_enable_notifications)
 
-    def discover_chars(self, handle: BleakClient, uuids: Type[UUIDs] = None) -> GattDB:
-        """Discover all characteristics for a connected handle.
-
-        By default, the BLE controller only knows Spec-Defined BleUUID's so any additional BleUUID's should
-        be passed in with the uuids argument
+    def discover_chars(self, handle: BleakClient) -> AttributeTable:
+        """discover all characteristics.
 
         Args:
-            handle (BleakClient): BLE handle to discover for
-            uuids (Type[UUIDs], Optional): Additional BleUUID information to use when building the
-                Gatt Database. Defaults to None.
+            handle (BleakClient): Device to perform discovery on
 
         Returns:
-            GattDB: Gatt Database
+            AttributeTable: Dict of services by UUID
         """
 
-        def bleak_props_adapter(bleak_props: List[str]) -> CharProps:
-            """Convert a list of bleak string properties into a CharProps
-
-            Args:
-                bleak_props (List[str]): bleak strings to convert
-
-            Returns:
-                CharProps: converted Enum
-            """
-            props = CharProps.NONE
-            for prop in bleak_props:
-                props |= bleak_props_to_enum[prop]
-            return props
-
-        async def _async_discover_chars() -> GattDB:
+        async def _async_discover_chars() -> AttributeTable:  # pylint: disable=missing-return-doc
             logger.info("Discovering characteristics...")
-            services: List[Service] = []
+            services: Dict[UUID, Service] = {}
+
             for service in handle.services:
-                service_uuid = (
-                    uuids[service.uuid]
-                    if uuids and service.uuid in uuids
-                    else BleUUID(service.description, hex=service.uuid)
-                )
-                logger.debug(f"[Service] {service_uuid}")
+                logger.debug("[Service] {0}: {1}".format(service.uuid, service.description))
+                try:
+                    # Create new service
+                    services[UUID(service.uuid)] = Service(UUID(service.uuid), service.description)
+                except ValueError:
+                    logger.error(f"{service.uuid} is not a known service")
+                    continue
 
                 # Loop over all chars in service
-                chars: List[Characteristic] = []
+                chars: Dict[UUID, Characteristic] = {}
                 for char in service.characteristics:
+                    # Read if applicable
+                    value = bytes(await handle.read_gatt_char(char.uuid)) if "read" in char.properties else b""
+                    # Create and log characteristic
+                    c = Characteristic(char.handle, UUID(char.uuid), char.properties, char.description, value)
                     # Get any descriptors if they exist
-                    descriptors: List[Descriptor] = []
+                    descriptors = []
                     for descriptor in char.descriptors:
-                        descriptors.append(
-                            Descriptor(
-                                handle=descriptor.handle,
-                                uuid=(
-                                    uuids[descriptor.uuid]
-                                    if uuids and descriptor.uuid in uuids
-                                    else BleUUID(descriptor.description, hex=descriptor.uuid)
-                                ),
-                                value=await handle.read_gatt_descriptor(descriptor.handle),
-                            )
-                        )
-                    # Create new characteristic
-                    # TODO add option or other method to read values also.
-                    chars.append(
-                        Characteristic(
-                            handle=char.handle,
-                            uuid=(
-                                uuids[char.uuid]
-                                if uuids and char.uuid in uuids
-                                else BleUUID(char.description, hex=char.uuid)
-                            ),
-                            props=bleak_props_adapter(char.properties),
-                            init_descriptors=descriptors,
-                        )
-                    )
-                    logger.debug(f"\t[Characteristic] {chars[-1]}")
+                        value = await handle.read_gatt_descriptor(descriptor.handle)
+                        descriptors.append(Descriptor(descriptor.handle, value))
+                    # Update char and add to dict
+                    c.descriptors = descriptors
+                    # Add characteristic to char dic
+                    chars[c.uuid] = c
 
-                # Create new service
-                services.append(Service(uuid=service_uuid, start_handle=service.handle, init_chars=chars))
+                # Add char dict to service
+                services[UUID(service.uuid)].chars = chars
 
             logger.info("Done discovering characteristics!")
-            return GattDB(services)
+            return AttributeTable(services)
 
         return self._as_coroutine(_async_discover_chars)
 
     def disconnect(self, handle: BleakClient) -> None:
-        """Terminate a BLE connection.
+        """terminate a BLE connection.
 
         Args:
             handle (BleakClient): client to disconnect from

@@ -5,9 +5,9 @@
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Callable, Generic, Pattern, TypeVar, Type, List
+from typing import Callable, Generic, Pattern, TypeVar
 
-from .services import GattDB, BleUUID, UUIDs
+from .services import AttributeTable
 
 logger = logging.getLogger(__name__)
 
@@ -21,12 +21,12 @@ class BLEController(ABC, Generic[BleDevice, BleHandle]):
     """Interface definition for a BLE driver to be used by GoPro."""
 
     @abstractmethod
-    def read(self, handle: BleHandle, uuid: BleUUID) -> bytearray:
-        """Read a bytestream response from a BleUUID.
+    def read(self, handle: BleHandle, uuid: str) -> bytearray:
+        """Read a bytestream response from a UUID.
 
         Args:
             handle (BleHandle): handle to pair to
-            uuid (BleUUID): BleUUID to read from
+            uuid (UUID): UUID to read from
 
         Returns:
             bytearray: response
@@ -34,12 +34,12 @@ class BLEController(ABC, Generic[BleDevice, BleHandle]):
         raise NotImplementedError
 
     @abstractmethod
-    def write(self, handle: BleHandle, uuid: BleUUID, data: bytearray) -> None:
-        """Write a bytestream to a BleUUID.
+    def write(self, handle: BleHandle, uuid: str, data: bytearray) -> None:
+        """Write a bytestream to a UUID.
 
         Args:
             handle (BleHandle): handle to pair to
-            uuid (BleUUID): BleUUID to write to
+            uuid (UUID): UUID to write to
             data (bytearray): bytestream to write
 
         Returns:
@@ -48,16 +48,15 @@ class BLEController(ABC, Generic[BleDevice, BleHandle]):
         raise NotImplementedError
 
     @abstractmethod
-    def scan(self, token: Pattern, timeout: int = 5, service_uuids: List[BleUUID] = None) -> BleDevice:
+    def scan(self, token: Pattern, timeout: int = 5) -> BleDevice:
         """Scan BLE device with a regex in it's device name.
 
         Args:
             token (Pattern): Regex to scan for
-            timeout (int): Time to scan (in seconds) before considering scanning as failed. Defaults to 5.
-            service_uuids (List[BleUUID], Optional): The list of BleUUID's to filter on. Defaults to None.
+            timeout (int, optional): [description]. Defaults to 5.
 
         Returns:
-            BleDevice: discovered device (shall not be multiple devices)
+            Device: discovered device (shall not be multiple devices)
         """
         raise NotImplementedError
 
@@ -68,7 +67,7 @@ class BLEController(ABC, Generic[BleDevice, BleHandle]):
         Args:
             disconnect_cb (DisconnectHandlerType): function to call when disconnect is received
             device (BleDevice): device to connect to
-            timeout (int): How long to attempt connecting before giving up. Defaults to 15.
+            timeout (int, optional): How long to attempt connecting before giving up. Defaults to 15.
 
         Returns:
             handle: handle that has been connected to
@@ -96,24 +95,19 @@ class BLEController(ABC, Generic[BleDevice, BleHandle]):
 
         Args:
             handle (BleHandle): handle to enable notifications on
-            handler (NotiHandlerType): notification handler
+            handler (Callable): notification handler
         """
         raise NotImplementedError
 
     @abstractmethod
-    def discover_chars(self, handle: BleHandle, uuids: Type[UUIDs] = None) -> GattDB:
+    def discover_chars(self, handle: BleHandle) -> AttributeTable:
         """Discover all characteristics for a connected handle.
 
-        By default, the BLE controller only knows Spec-Defined BleUUID's so any additional BleUUID's should
-        be passed in with the uuids argument
-
         Args:
-            handle (BleHandle): BLE handle to discover for
-            uuids (Type[UUIDs], Optional): Additional BleUUID information to use when building the
-                Gatt Database. Defaults to None.
+            handle (BleHandle): handle to discover on
 
         Returns:
-            GattDB: Gatt Database
+            BleHandle: handle with updated gatt_table attribute
         """
         raise NotImplementedError
 

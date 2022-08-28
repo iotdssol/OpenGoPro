@@ -2,7 +2,7 @@
 # This copyright was auto-generated on Fri Sep 10 01:35:03 UTC 2021
 
 # pylint: disable=redefined-outer-name
-
+# pylint: disable=missing-return-doc
 
 """Unit testing of GoPro Client"""
 
@@ -15,13 +15,16 @@ import requests
 import requests_mock
 
 from open_gopro.gopro import GoPro
+from open_gopro.ble import UUID
 from open_gopro.exceptions import InvalidConfiguration, ResponseTimeout
-from open_gopro.constants import CmdId, GoProUUIDs, StatusId
+from open_gopro.constants import CmdId, ErrorCode, StatusId
+from open_gopro.responses import GoProResp
 
 
 ready = False
 
 
+@pytest.mark.asyncio
 def test_ble_threads_start(gopro_client_maintain_ble: GoPro):
     def open_client():
         gopro_client_maintain_ble.open()
@@ -39,12 +42,13 @@ def test_ble_threads_start(gopro_client_maintain_ble: GoPro):
     assert not gopro_client_maintain_ble.is_encoding
     set_shutter = bytearray([0x02, 0x01, 0x00])
     assert gopro_client_maintain_ble._write_characteristic_receive_notification(
-        GoProUUIDs.CQ_COMMAND, set_shutter, None
+        UUID.CQ_COMMAND, set_shutter
     ).is_ok
 
 
+@pytest.mark.asyncio
 def test_gopro_is_instanciated(gopro_client: GoPro):
-    assert gopro_client.version == 2.0
+    assert gopro_client.version == 1.0
     assert gopro_client.identifier is None
     assert gopro_client._is_ble_initialized
     with pytest.raises(InvalidConfiguration):
@@ -53,6 +57,7 @@ def test_gopro_is_instanciated(gopro_client: GoPro):
         assert gopro_client.is_encoding
 
 
+@pytest.mark.asyncio
 def test_gopro_open(gopro_client: GoPro):
     gopro_client.open()
     assert gopro_client.is_ble_connected
@@ -60,6 +65,7 @@ def test_gopro_open(gopro_client: GoPro):
     assert gopro_client.identifier == "scanned_device"
 
 
+@pytest.mark.asyncio
 def test_http_get(gopro_client: GoPro, monkeypatch):
     endpoint = "gopro/camera/stream/start"
     session = requests.Session()
@@ -71,6 +77,7 @@ def test_http_get(gopro_client: GoPro, monkeypatch):
     assert response.is_ok
 
 
+@pytest.mark.asyncio
 def test_http_file(gopro_client: GoPro, monkeypatch):
     out_file = Path("test.mp4")
     endpoint = "videos/DCIM/100GOPRO/dummy.MP4"
@@ -83,6 +90,7 @@ def test_http_file(gopro_client: GoPro, monkeypatch):
     assert out_file.exists()
 
 
+@pytest.mark.asyncio
 def test_http_response_timeout(gopro_client: GoPro, monkeypatch):
     with pytest.raises(ResponseTimeout):
         endpoint = "gopro/camera/stream/start"
@@ -94,6 +102,7 @@ def test_http_response_timeout(gopro_client: GoPro, monkeypatch):
         gopro_client._get(endpoint)
 
 
+@pytest.mark.asyncio
 def test_http_response_error(gopro_client: GoPro, monkeypatch):
     endpoint = "gopro/camera/stream/start"
     session = requests.Session()
@@ -107,26 +116,30 @@ def test_http_response_error(gopro_client: GoPro, monkeypatch):
     assert not response.is_ok
 
 
+@pytest.mark.asyncio
 def test_get_update(gopro_client: GoPro):
     gopro_client._out_q.put(1)
-    assert gopro_client.get_notification() == 1
+    assert gopro_client.get_update() == 1
 
 
+@pytest.mark.asyncio
 def test_keep_alive(gopro_client: GoPro):
     assert gopro_client.keep_alive()
 
 
-# def test_notification_handler(gopro_client: GoPro):
-#     response = gopro_client._write_characteristic_receive_notification(
-#         GoProUUIDs.CQ_COMMAND,
-#         bytearray([0x03, 0x01, 0x01, 0x01]),
-#         response_data=[bytearray([0x02, 0x01, 0x00])],
-#         response_uuid=GoProUUIDs.CQ_COMMAND_RESP,
-#         response_id=CmdId.SET_SHUTTER,
-#     )
-#     assert response.is_ok
+@pytest.mark.asyncio
+def test_notification_handler(gopro_client: GoPro):
+    response = gopro_client._write_characteristic_receive_notification(
+        UUID.CQ_COMMAND,
+        bytearray([0x03, 0x01, 0x01, 0x01]),
+        response_data=[bytearray([0x02, 0x01, 0x00])],
+        response_uuid=UUID.CQ_COMMAND_RESP,
+        response_id=CmdId.SET_SHUTTER,
+    )
+    assert response.is_ok
 
 
+@pytest.mark.asyncio
 def test_gopro_close(gopro_client: GoPro):
     gopro_client.close()
     assert not gopro_client.is_ble_connected

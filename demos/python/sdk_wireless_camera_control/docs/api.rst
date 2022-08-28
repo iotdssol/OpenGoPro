@@ -27,13 +27,39 @@ This can be imported as:
 
    from open_gopro import GoPro
 
-.. autoclass:: open_gopro.gopro.GoPro
+.. automodule:: open_gopro.gopro
    :members:
+
+Responses
+=========
+
+This can be imported via:
+
+.. code-block:: python
+
+   from open_gopro import GoProResp
+
+.. autoclass:: open_gopro.responses.GoProResp
+   :members:
+
+Constants
+=========
+
+These can be imported as:
+
+.. code-block:: python
+
+   from open_gopro import constants
+
+
+.. automodule:: open_gopro.constants
+   :members:
+   :undoc-members:
 
 API
 ===
 
-These are both the base types that are used to implement the API (BLE Setting, Ble Status, etc.) and the
+This is both the base types that are used to implement the API (BLE Setting, Ble Status, etc.) and the
 version-specific API's themselves.
 
 Since the API is configured (by version) dynamically after a connection is formed, these should not be imported
@@ -64,86 +90,104 @@ WiFi Setting
 .. autoclass:: open_gopro.api.builders.WifiSetting
    :members:
 
-BLE Commands
-------------
+API Version 1.0
+---------------
 
-.. autoclass:: open_gopro.api.ble_commands.BleCommands
+This is the API that the user should actually use to interface with the camera.
+
+BLE 1.0 Commands
+^^^^^^^^^^^^^^^^
+
+.. autoclass:: open_gopro.api.v1_0.ble_commands.BleCommandsV1_0
    :members:
 
-BLE Settings
-------------
+BLE 1.0 Settings
+^^^^^^^^^^^^^^^^
 
-.. autoclass:: open_gopro.api.ble_commands.BleSettings
+.. autoclass:: open_gopro.api.v1_0.ble_commands.BleSettingsV1_0
    :members:
 
-BLE Statuses
-------------
+BLE 1.0 Statuses
+^^^^^^^^^^^^^^^^
 
-.. autoclass:: open_gopro.api.ble_commands.BleStatuses
+.. autoclass:: open_gopro.api.v1_0.ble_commands.BleStatusesV1_0
    :members:
 
-WiFi Commands
--------------
+WiFi 1.0 Commands
+^^^^^^^^^^^^^^^^^
 
-.. autoclass:: open_gopro.api.wifi_commands.WifiCommands
+.. autoclass:: open_gopro.api.v1_0.wifi_commands.WifiCommandsV1_0
    :members:
 
-WiFi Settings
--------------
+WiFi 1.0 Settings
+^^^^^^^^^^^^^^^^^
 
-.. autoclass:: open_gopro.api.wifi_commands.WifiSettings
+.. autoclass:: open_gopro.api.v1_0.wifi_commands.WifiSettingsV1_0
    :members:
 
-Parameters
-----------
+1.0 Parameters
+^^^^^^^^^^^^^^
 
 All of these parameters can be accessed via:
 
 .. code-block:: python
 
-   from open_gopro import Params
+   from open_gopro import params
 
-.. automodule:: open_gopro.api.params
+.. autoclass:: open_gopro.api.v1_0.params.ParamsV1_0
    :members:
    :undoc-members:
 
+API Version 2.0
+---------------
 
-Responses
-=========
+This is the API that the user should actually use to interface with the camera.
 
-This can be imported via:
+BLE 2.0 Commands
+^^^^^^^^^^^^^^^^
+
+.. autoclass:: open_gopro.api.v2_0.ble_commands.BleCommandsV2_0
+   :members:
+   :inherited-members:
+
+BLE 2.0 Settings
+^^^^^^^^^^^^^^^^
+
+.. autoclass:: open_gopro.api.v2_0.ble_commands.BleSettingsV2_0
+   :members:
+   :inherited-members:
+
+BLE 2.0 Statuses
+^^^^^^^^^^^^^^^^
+
+.. autoclass:: open_gopro.api.v2_0.ble_commands.BleStatusesV2_0
+   :members:
+   :inherited-members:
+
+WiFi 2.0 Commands
+^^^^^^^^^^^^^^^^^
+
+.. autoclass:: open_gopro.api.v2_0.wifi_commands.WifiCommandsV2_0
+   :members:
+   :inherited-members:
+
+WiFi 2.0 Settings
+^^^^^^^^^^^^^^^^^
+
+.. autoclass:: open_gopro.api.v2_0.wifi_commands.WifiSettingsV2_0
+   :members:
+   :inherited-members:
+
+2.0 Parameters
+^^^^^^^^^^^^^^
+
+All of these parameters can be accessed via:
 
 .. code-block:: python
 
-   from open_gopro import GoProResp
+   from open_gopro import params
 
-.. autoclass:: open_gopro.responses.GoProResp
-   :members:
-
-
-Constants
-=========
-
-These can be imported as:
-
-.. code-block:: python
-
-   from open_gopro import constants
-
-
-.. automodule:: open_gopro.constants
+.. autoclass:: open_gopro.api.v2_0.params.ParamsV2_0
    :members:
    :undoc-members:
-
-Exceptions
-==========
-
-.. automodule:: open_gopro.exceptions
-   :members:
-   :undoc-members:
-
-Bluetooth Services
-==================
-
-.. autoclass:: open_gopro.ble.services.BleUUID
-   :members:
+   :inherited-members:

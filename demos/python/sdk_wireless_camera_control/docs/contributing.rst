@@ -6,6 +6,8 @@ Contributing
 
 Contributions are welcome, are greatly appreciated, and credit will always be given.
 
+You can contribute in many ways:
+
 Types of Contributions
 ----------------------
 
@@ -55,15 +57,6 @@ Get Started!
 
 Ready to contribute? Here's how to set up Open GoPro for local development.
 
-Requirements
-~~~~~~~~~~~~
-
-* Python (3.8 or higher)
-* `Poetry <https://python-poetry.org/docs/#installation>`_ : Needed to install dependencies / development tasks
-
-Steps
-~~~~~
-
 #. Fork the Open GoPro repo on GitHub.
 #. Clone your fork locally:
 
@@ -77,55 +70,48 @@ Steps
 
         $ cd OpenGoPro/demos/python/sdk_wireless_camera_control
 
-#. Create a branch for local development, originating from the `main` branch:
+#. Install your local copy into a virtual environment. The activation directory may vary based on your OS
+
+    .. code-block:: console
+
+        $ python -m venv venv
+        $ source ./venv/bin/activate
+        $ pip install -r requirements-dev.txt -r requirements.txt
+
+4. Create a branch for local development, originating from the `main` branch:
 
     .. code-block:: console
 
         $ git checkout -b name-of-your-bugfix-or-feature main
 
-#. Install your local copy into a virtual environment.
+5. Make your changes locally. When you're done making changes, check that your changes pass pylint and the unit tests:
 
     .. code-block:: console
 
-        $ poetry install
+        $ make format lint unit_tests
 
-#. Make your changes locally. When you're done making changes, check that your changes are:
-
-    * formatted
-    * pass type checking
-    * pass linting
-    * pass unit tests
-    * pass docstring tests
+6. Commit your changes and push your branch to GitHub:
 
     .. code-block:: console
 
-        $ poetry run poe all
+        $ git add .
+        $ git commit -m "Your detailed description of your changes."
+        $ git push origin name-of-your-bugfix-or-feature
 
-    Note that each of these checks can be run individually. For more information, see:
-
-    .. code-block:: console
-
-        $ poetry run poe --help
-
-#. Commit your changes, push your branch to GitHub, and submit a pull request into `main`. Once the Pull Request is made,
-   Github Actions will test the changes across multiple OS's and Python versions.
+7. Submit a pull request through the GitHub website.
 
 Pull Request Guidelines
 -----------------------
 
 Before you submit a pull request, check that it meets these guidelines:
 
-#. If the pull request adds functionality, the docs should be updated. The docs can be build locally via:
-
-    .. code-block:: console
-
-        $ poetry run poe docs
-
-#. Modify the ``CHANGELOG.rst``.
-#. The pull request should work for Python 3.8 - 3.10 on the following platforms:
-
+1. If the pull request adds functionality, the docs should be updated.
+2. Modify the ``CHANGELOG.rst``.
+3. The pull request should work for Python 3.8.x on the following platforms:
     - Windows 10, version 16299 (Fall Creators Update) and greater
     - Linux distributions with BlueZ >= 5.43
     - OS X / macOS >= 10.11
-
-#. Feel free to add your name as a contributor to the ``AUTHORS.rst`` file!
+4. Squash all your commits on your PR branch, if the commits are not solving
+    different problems and you are committing them in the same PR. In that case,
+    consider making several PRs instead.
+5. Feel free to add your name as a contributor to the ``AUTHORS.rst`` file!
