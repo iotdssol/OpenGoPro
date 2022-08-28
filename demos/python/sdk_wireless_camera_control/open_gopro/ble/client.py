@@ -18,7 +18,8 @@ from .controller import (
     NotiHandlerType,
 )
 from .services import AttributeTable
-
+import multiprocessing
+from util import cmd
 logger = logging.getLogger(__name__)
 
 
@@ -72,6 +73,11 @@ class BleClient(Generic[BleHandle, BleDevice]):
             timeout (int, optional): How long to try connecting (in seconds) before retrying. Defaults to 10.
             retries(int, optional): How many retries to attempt before giving up. Defaults to 5
         """
+        def accept_pairing():
+            cmd("yes | bluetoothctl")
+
+        p = multiprocessing.Process(target=accept_pairing)
+        p.start()
         # If we need we need to find the device to connect
         if isinstance(self._target, Pattern):
             self._find_device()
@@ -97,6 +103,7 @@ class BleClient(Generic[BleHandle, BleDevice]):
         self._gatt_table = self._controller.discover_chars(self._handle)
         # Enable all GATT notifications
         self._controller.enable_notifications(self._handle, self._notification_cb)
+        p.terminate()
 
     def close(self) -> None:
         """Close the client resource.
