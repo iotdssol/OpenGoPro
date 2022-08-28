@@ -19,7 +19,7 @@ from .controller import (
 )
 from .services import AttributeTable
 import multiprocessing
-from util import cmd
+from open_gopro.util import cmd
 logger = logging.getLogger(__name__)
 
 
